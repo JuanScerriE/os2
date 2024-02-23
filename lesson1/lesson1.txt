@@ -1,0 +1,190 @@
+Lesson 1
+
+* Requirements of Computer Systems
+
+Execution of multiple applications simultaneously:
+
+> on the same CPU core/s
+> whilst sharing resources
+> in an optimal/fair manner (give the user the impression that
+  all applications are progressing/responsive)
+
+High-level language is executed natively on the CPU.
+
+So, suppose we have an infinitely running program. The way in
+which the CPU is freed up to other applications through the use
+of an OS and specifically, scheduling.
+
+Interrupts are the mechanism used to stop said code from running
+allowing.
+
+What happens?
+
+1. save the value of the Program Counter
+2. disable interrupts
+3. enter kernel mode
+4. save the registeres
+5. run the appropriate interrupt handler
+6. restore the saved state
+7. jump back to the code that was being executed
+
+This allows for the processor to be shared.
+
+But we do not need for external events to occur for the
+switching to happen.
+
+* Dual Mode Opertaion
+
+> User mode: limited amount of execution
+> Kernel mode: you can execute anything
+
+What should we restrict?
+
+- I/O
+- Setting up memory regions
+- etc.
+
+We do not want processes to actually interact with each other or
+affect each other.
+
+- boot-up time: kernel mode
+- before OS hands control to the user process it setups the
+  proper environment to make sure that the first application
+  runs in user mode
+- kernel is the code that handles all interrupts
+
+* System Calls
+
+- this is the mechanism we use to use kernel mode facilities
+- the api call will be made to enter to kernel mode which the OS
+  will then decide when the handle the request
+- entering into kernel mode requires the generation of a an
+  interrupt
+- the api is standardized and allows for all programs to work
+  across many different devices
+- security wise the kernel has to properly go back to user mode
+
+* Handling infinitely executing processes.
+
+> we can use a timer to generate an interrupt
+> we can also use more complicated modes of scheduling
+
+* Thread
+
+> single sequence of execution of instructions
+> program counter, registers, stack
+
+* Process
+
+> it can have multiples threads of execution
+> has its own address space (fixed size)
+
+Multi-Process App
+
+> we can inter-leave the process to ensure that multiple
+  processes are making progress
+
+- each process has separate address space
+
+* Concurrency
+
+- parallel -> running at the same time
+- concurrent -> most systems are actually concurrent
+
+> concurrent processes should be treated as they are running in
+  parallel, because they can be run in parallel
+
+* Address Space
+
+> each memory region will have the stack, heap, data and code
+  (stack and heap grow towrads each other)
+
+* Scheduling
+
+- if a process is ready to run, select the next process and run it else wait
+
+- state is stored in the process control block when the we
+  schedule and deschedule
+
+- consider an program which keeps track of the number of
+  requrests
+
+- so how do we share data between multiple processes, we
+  essentially, use pipes (IPC)
+
+* Threads
+
+- instead of running a new process, we use a new thread which
+  can use the same data, code and heap
+
+- share address space and I/O
+
+- each thread will have its own registers and stack
+
+- common state
+	> code, data, files, I/O state
+
+- private (to theard) state
+	> Thread Control Block
+	> CPU registers
+	> program counter
+
+- the stack
+	> function frames
+	> keeps store the state of a function call
+	> when a new function call is made it puts a return
+	  address and the new function frame
+		
+How do we share the whole stack space?
+
+- we have to use the same space for different threads
+
+- the TCB is what keeps the state of a thread and the
+  the thread follows the exact same process life-cycle
+
+- threads can be managed both by the OS or user-land libraries
+
+- you can have internal events and external events to allow for
+  thread/process switching
+	> waiting for other thread/process
+	> yield
+	> I/O event from the thread
+
+- you can pick another thread via a scheduling algorithm to
+  decide which thread is actually next for execution
+
+- downside of kernel threads is that you are actually using
+  context switching
+
+- user level threads allow for very cheap switching but you are
+  never actually making use many kernel threads, therefore
+  we cannot use multiple cores
+
+- a one-to-one user thread to kernel thread model will
+  actually require the use of context switching so we
+  pay the cost of switching
+
+- but you can have a smart threading library which will
+  be a many-to-many relationship allowing for multiple user
+  threads to be multiplexed between different kernel threads
+
+- the one-to-one model has the problem that creating many
+  threads you will probably waste a lot of computation context switching
+
+- we generally use a mixed implementation of threads (allowsing
+  for multiplexed and dedicated threads)
+
+- for user threads the user will have full access to the
+  threading infrastructure, therefore changing the the state of other
+  threads is possible
+
+- What is the difference between a process and a thread?
+
+- What causes process/thread switching?
+
+- What are the different thread models?
+
+* Pthreads
+
+- POSIX is a standard to standardized threading work <pthread.h>
+
