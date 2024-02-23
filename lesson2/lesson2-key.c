@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sys/_pthread/_pthread_key_t.h>
-#include <sys/_pthread/_pthread_once_t.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -17,23 +15,16 @@
 static inline void handle_pthread_error(int errnum) {
   char strerrbuf[ERROR_BUF_LEN];
 
-  if (errnum < sys_nerr) {
-    if (strerror_r(errnum, strerrbuf, ERROR_BUF_LEN) == ERANGE) {
-      fprintf(stderr,
-              "pthread_create: could not create the thread, error number "
-              "[%d] - %s (insufficient error buffer size)\n",
-              errnum, strerrbuf);
-    } else {
-      fprintf(stderr,
-              "pthread_create: could not create the thread, error number "
-              "[%d] - %s\n",
-              errnum, strerrbuf);
-    }
+  if (strerror_r(errnum, strerrbuf, ERROR_BUF_LEN) == ERANGE) {
+    fprintf(stderr,
+            "pthread_create: could not create the thread, error number "
+            "[%d] - (%s) {insufficient error buffer size}\n",
+            errnum, strerrbuf);
   } else {
     fprintf(stderr,
             "pthread_create: could not create the thread, error number "
-            "[%d] (%d > sys_nerr)\n",
-            errnum, errnum);
+            "[%d] - (%s)\n",
+            errnum, strerrbuf);
   }
 }
 
@@ -83,6 +74,8 @@ void generate_random_msg(char *msg, size_t size) {
 void create_thread_data(void) {
   thread_data_t *tdata = (thread_data_t *)malloc(sizeof(thread_data_t));
 
+  printf("ALLOCATING DATA AT %p...\n", tdata);
+
   tdata->msg_reps = (rand() % 20) + 1;
   generate_random_msg(tdata->message, 16);
   tdata->tid = pthread_self();
@@ -97,9 +90,12 @@ void create_thread_data(void) {
 }
 
 void free_keyed(void *data) {
+  printf("FREEING KEY DATA %p...\n", data);
+
   thread_data_t *tdata = (thread_data_t *)data;
 
-  free(tdata);
+  if (tdata)
+    free(tdata);
 }
 
 // NOTE: You shouldn't do this. The only reasonable place to
@@ -108,6 +104,8 @@ void free_keyed(void *data) {
 // proper deallocation of resources.
 void init_thread(void) {
   int errnum;
+
+  printf("INIT_THREAD\n");
 
   if ((errnum = pthread_key_create(&key, free_keyed)) != 0) {
     handle_pthread_error(errnum);
@@ -125,14 +123,14 @@ void *thread(void *arg) {
     exit(EXIT_FAILURE);
   }
 
-  create_thread_data(); 
+  create_thread_data();
 
   thread_data_t *tdata = pthread_getspecific(key);
 
   for (int i = 0; i < tdata->msg_reps; i++) {
-    printf("TID: %p, MSG: %s\n", tdata->tid, tdata->message);
+    printf("TID: %lu, REPS: %d, I: %d, MSG: %s\n", tdata->tid, tdata->msg_reps,
+           i, tdata->message);
   }
-
 
   return 0;
 }
@@ -148,32 +146,35 @@ int main(void) {
 
   int num_of_threads = (rand() % 8) + 1;
 
+  printf("NUMBER OF THREADS: %d\n", num_of_threads);
+
   pthread_t tids[num_of_threads];
 
-  thread_data_t tdatas[num_of_threads];
+  // thread_data_t tdatas[num_of_threads];
 
   for (int i = 0; i < num_of_threads; i++) {
-    snprintf(tdatas[i].message, MSG_LEN, "Thread: %d", i);
+    // snprintf(tdatas[i].message, MSG_LEN, "Thread: %d", i);
 
-    if ((errnum = pthread_create(&tids[i], NULL, thread, &tdatas[i])) != 0) {
+    if ((errnum = pthread_create(&tids[i], NULL, thread,
+                                 NULL /*&tdatas[i]*/)) != 0) {
       handle_pthread_error(errnum);
 
       exit(EXIT_FAILURE);
     }
   }
 
-  unsigned int random_thread = rand() % num_of_threads;
-
-  if ((errnum = pthread_cancel(tids[random_thread])) != 0) {
-    // we need to make sure to handle this case because the
-    // thread might not actually be alive anymore especially if
-    // we detach.
-    handle_pthread_error(errnum);
-  }
+  // unsigned int random_thread = rand() % num_of_threads;
+  //
+  // if ((errnum = pthread_cancel(tids[random_thread])) != 0) {
+  //   // we need to make sure to handle this case because the
+  //   // thread might not actually be alive anymore especially if
+  //   // we detach.
+  //   handle_pthread_error(errnum);
+  // }
 
   void *return_value;
 
-  for (int i = 0; i < NUM_OF_THREADS; i++) {
+  for (int i = 0; i < num_of_threads; i++) {
     if ((errnum = pthread_join(tids[i], &return_value)) != 0) {
       handle_pthread_error(errnum);
 
@@ -189,5 +190,12 @@ int main(void) {
     handle_pthread_error(errnum);
   }
 
+  printf("DELETED_KEY\n");
+
   return 0;
+
+  // he walks this path beware our saviour valgrind fails to
+  // comprehend the magic which is threads and hence it will
+  // always flag at num_of_threads as ... Actually don't even
+  // bother I figured out it was an issue with and if condition.
 }
